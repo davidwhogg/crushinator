@@ -1,5 +1,7 @@
 \documentclass[12pt,preprint,letterpaper]{aastex}
 
+\newcommand{\dd}{\mathrm{d}}
+
 \begin{document}
 
 \begin{abstract}
@@ -22,6 +24,53 @@ We also show that it is possible to infer not just the mean spectra for a group 
 For the massive galaxies at redshift two we find XXX.
 \end{abstract}
 
-~~
+\section{Introduction}
+
+...Repeat the stuff that Vy showed us...
+
+...Explain why we might be able to work at higher resolution...
+
+...Under what crazy circumstances can we even \emph{think} about doing this?..
+
+\section{Model and method}
+
+There are $N$ sources $n$, each of which may have been observed photometrically through each of $X$ bandpasses $x$.
+Each bandpass $x$ is defined by a full-system throughput curve $R_x(\lambda)$,
+  which gives the expected contribution to the total detector signal from a photon of wavelength $\lambda$
+  impinging on the top of the atmosphere (and headed into the telescope aperture),
+  when band $x$ is being observed.
+In the simplified case of a photon counting device (like a CCD),
+  the function $R_x(\lambda)$ gives the probability that a top-of-atmosphere photon gets detected.
+For a bolometric device, the interpretation is slightly different.
+
+The model is that each of these sources $n$ has a true spectrum $f_n(\lambda)$ (energy per unit time per unit area per unit wavelength)
+  that is some amplitude $a_n$ times a normalized ``template'' spectrum $g(\lambda)$.
+Each source $n$ also has a redshift (Doppler Shift) $z_n$.
+The true spectrum template $g(\lambda)$, the true amplitude $a_n$, and the true redshift $z_n$ are all latent variables,
+  although in some cases we will have strong prior information about the redshifts.
+
+For reasons given elsewhere (CITE HOGG \& BALDRY), the expectation value for the magnitude $m_{xn}$
+  of source $n$ observed in bandpass $x$ is given by
+\begin{eqnarray}
+E[m_{xn}] &=&
+  -2.5\,\log_{10} q_{xn}
+\\
+q_{xn} &=&
+  \frac{\displaystyle\int\frac{a_n}{1+z_n}\,g(\frac{\lambda}{1+z_n})\,R_x(\lambda)\,\lambda\,\dd\lambda}%
+       {\displaystyle\int f_0(\lambda)\,R_x(\lambda)\,\lambda\,\dd\lambda}%
+\quad ,
+\end{eqnarray}
+where the $[1+z_n]^{-1}$ factor is a convention to make the $a_n$ somewhat more interpretable as amplitudes,
+  and $f_0(\lambda)$ is the spectrum of the zero-magnitude absolute calibration source;
+  this is the spectrum of Vega for Vega magnitudes, and
+  [SOMETHING HERE] for AB magnitudes.
+
+...work in expected maggies $q_{xn}$ where uncertainties are likely to be close to Gaussian, even for faint sources...
+
+...parameterize $g(\lambda)$ as a set of points, evenly spaced in $\ln\lambda$.  Alternatives to this?.. interpolation and edge issues?..
+
+...write down likelihood...
+
+...write down smoothness prior or regularization...
 
 \end{document}
