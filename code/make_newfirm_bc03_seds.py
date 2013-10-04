@@ -17,7 +17,7 @@ print 'There are %d galaxies with measured parameters' % \
     ind.size
 
 # A_v = 1.086 * tau_v
-N = parms.shape[0]*0 + 1
+N = parms.shape[0]
 for i in range(N):
     ident, z, tau = parms[i, :3]
     metal, age, Av = parms[i, 3:6]
