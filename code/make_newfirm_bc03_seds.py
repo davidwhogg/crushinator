@@ -2,51 +2,10 @@ import os
 import subprocess
 import numpy as np
 
-# newfirm sps data file
-filename = '../data/newfirm/cosmos-1.deblend.sps/' + \
-    'cosmos-1.bc03.del.deblend.v5.1.fout'
-parms = np.loadtxt(filename)
+def generate_bc03_sed(ident, z, tau, metal, age, AV):
 
-# newfirm photometry data file
-phot_cat = np.loadtxt('../data/newfirm/cosmos-1.deblend.v5.1.cat')
-
-# newfirm redshift data file
-filename = '../data/newfirm/cosmos-1.deblend.redshifts/' + \
-    'cosmos-1.deblend.v5.1.zout'
-z_cat = np.loadtxt(filename)
-
-# run through data to check id and assign redshift
-z = np.zeros(z_cat.shape[0])
-for i in range(z.size):
-    assert ((parms[i, 0] == z_cat[i, 0]) &
-            (phot_cat[i, 0] == z_cat[i, 0]))
-
-    # check for spec redshift
-    if z_cat[i, 1] != -1:
-        z[i] = z_cat[i, 1]
-    else:
-        z[i] = z_cat[i, 5]
-
-# Select galaxies, using criteria similar to Kriek et al. (2011)
-# This gives 3076 galaxies, a bit less than Kriek et al.
-ind = np.where((parms[:, 1] != -1) &    # sps exists
-               (phot_cat[:, -1] == 1) & # the `use` flag
-               (z > 0.5) &              # redshift criterion
-               (z < 2.0) &              # redshift criterion
-               (phot_cat[:, 22] / phot_cat[:, 23] > 25.))[0] # S/N
-
-parms = parms[ind]
-print 'There are %d galaxies with required criteria' % \
-    ind.size
-
-# bc03 library directory
-library_dir = '../external/bc03/models/Padova1994/chabrier/'
-
-# A_v = 1.086 * tau_v
-N = parms.shape[0]
-for i in range(N):
-    ident, z, tau = parms[i, :3]
-    metal, age, Av = parms[i, 3:6]
+    # bc03 library directory
+    library_dir = '../external/bc03/models/Padova1994/chabrier/'
 
     # only using the 'm62' bc03
     assert metal == 0.02
@@ -74,3 +33,49 @@ for i in range(N):
 
     # cleanup
     os .system('rm out*')
+
+if __name__ == '__main__':
+
+    # newfirm sps data file
+    filename = '../data/newfirm/cosmos-1.deblend.sps/' + \
+        'cosmos-1.bc03.del.deblend.v5.1.fout'
+    parms = np.loadtxt(filename)
+
+    # newfirm photometry data file
+    phot_cat = np.loadtxt('../data/newfirm/cosmos-1.deblend.v5.1.cat')
+
+    # newfirm redshift data file
+    filename = '../data/newfirm/cosmos-1.deblend.redshifts/' + \
+        'cosmos-1.deblend.v5.1.zout'
+    z_cat = np.loadtxt(filename)
+
+    # run through data to check id and assign redshift
+    z = np.zeros(z_cat.shape[0])
+    for i in range(z.size):
+        assert ((parms[i, 0] == z_cat[i, 0]) &
+                (phot_cat[i, 0] == z_cat[i, 0]))
+
+        # check for spec redshift
+        if z_cat[i, 1] != -1:
+            z[i] = z_cat[i, 1]
+        else:
+            z[i] = z_cat[i, 5]
+
+    # Select galaxies, using criteria similar to Kriek et al. (2011)
+    # This gives 3076 galaxies, a bit less than Kriek et al.
+    ind = np.where((parms[:, 1] != -1) &    # sps exists
+                   (phot_cat[:, -1] == 1) & # the `use` flag
+                   (z > 0.5) &              # redshift criterion
+                   (z < 2.0) &              # redshift criterion
+                   (phot_cat[:, 22] / phot_cat[:, 23] > 25.))[0] # S/N
+
+    parms = parms[ind]
+    print 'There are %d galaxies with required criteria' % \
+        ind.size
+
+    # A_v = 1.086 * tau_v
+    N = parms.shape[0]
+    for i in range(N):
+        ident, z, tau = parms[i, :3]
+        metal, age, Av = parms[i, 3:6]
+        make_bc03_sed(ident, z, tau, metal, age, Av)
