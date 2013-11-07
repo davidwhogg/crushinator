@@ -26,8 +26,11 @@ f = open('foo')
 sed_list = f.readlines()
 os.system('rm foo')
 
-N = 10
+N = len(sed_list)
+results = np.zeros((N, 2))
 for i in range(N):
+    print i, N
+
     # get sed and identity
     filename = sed_list[i][:-1]
     sed = np.loadtxt(filename)
@@ -64,23 +67,19 @@ for i in range(N):
     ferrs = ferrs[ind]
     waves = cws[ind]
 
-    print filename
-    f = pl.figure()
-    pl.plot(np.log10(sed[:, 0]), sed[:, 1])
-    pl.plot(np.log10(waves), sed_fluxes, 'o')
-    f.savefig('../plots/foo.png')
-    if i==1:
-        assert 0
-
     # fit
     scale, chi2 = fit_flux_densities(fluxes, ferrs, sed_fluxes)
-    print i, chi2, chi2 / waves.size
+    #print i, chi2, chi2 / waves.size
+    results[i, 0] = scale
+    results[i, 1] = chi2
 
     # plot if desired
-    if sys.argv[1] == 'True':
-        f=pl.figure()
-        pl.plot(np.log10(sed[:, 0]), sed[:, 1] * scale)
-        pl.plot(np.log10(waves), sed_fluxes * scale, 'o')
-        pl.errorbar(np.log10(waves), fluxes, yerr=ferrs, fmt='ro')
-        pl.title('$\chi^2 = %0.2f$' % (chi2 / waves.size))
-        f.savefig('../plots/sed_fits_%d.png' % ident)
+    #if sys.argv[1] == 'True':
+    #    f=pl.figure()
+    #    pl.plot(np.log10(sed[:, 0]), sed[:, 1] * scale)
+    #    pl.plot(np.log10(waves), sed_fluxes * scale, 'o')
+    #    pl.errorbar(np.log10(waves), fluxes, yerr=ferrs, fmt='ro')
+    #    pl.title('$\chi^2 = %0.2f$' % (chi2 / waves.size))
+    #    f.savefig('../plots/sed_fits_%d.png' % ident)
+
+np.savetxt(base + 'sed_fit_scales.dat', results)

@@ -97,12 +97,22 @@ if __name__ == '__main__':
         sed = np.loadtxt(sed_files[i][:-1])
         fluxes[i] = make_measurements(np.log10(sed[:, 0]), sed[:, 1],
                                       filter_loglams, filter_profile)
-        
+
+    if True:
+        np.savetxt('../data/newfirm/cosmos_seds/kriek/synth_fluxes.dat', fluxes)
+        assert 0
+
     print 'b_values'
     b_values = get_distance_metrics(fluxes)
     print 'clusters'
-    clusters = get_clusters(b_values, 0.05)
-    
+    while True:
+        tol = np.float(raw_input('-->'))
+        clusters = get_clusters(b_values, tol)
+        print np.unique(clusters), len(np.unique(clusters))
+        cmd = raw_input('-->')
+        if cmd == 'stop':
+            break
+
     f = open('../data/newfirm/cosmos_seds/kriek/clusters.txt', 'w')
     for i in range(clusters.size):
         f.write('%d\n' % clusters[i])
