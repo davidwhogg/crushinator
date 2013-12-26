@@ -1,6 +1,6 @@
 import numpy as np
 
-from scipy.integrate import simps
+from scipy.integrate import simps, cumtrapz
 from scipy.interpolate import interp1d
 from scipy.ndimage.filters import gaussian_filter1d
 
@@ -27,34 +27,51 @@ def effective_wavelength(filt):
     b = np.sum(filt[:, 1] / filt[:, 0])
     return np.sqrt(a / b)
 
-def compute_fluxes(filters, sed, redshift):
+def compute_fluxes(interp_funcs, sed, redshift, max_waves,
+                   integrate='cumtrapz_c'):
     """
     Compute fluxes in bandpasses, given redshift and sed
     """
-    sed_wave = (1. + redshift) * sed[:, 0]
-    sed_flux = sed[:, 1]
+    if integrate == 'cumtrapz_c':
+        from flux_calculation import flux_cumtrapz 
 
-    fluxes = np.zeros(len(filters.keys()))
+    tmp_sed = sed.copy()
+    tmp_sed[:, 0] = (1. + redshift) * tmp_sed[:, 0]
+
+    fluxes = np.zeros(len(interp_funcs.keys()))
     for i in range(fluxes.size):
-        interp = interp1d(filters[i][:, 0], filters[i][:, 1],
-                          bounds_error=False, fill_value=0.0)
-        if sed_wave[0] < filters[i][:, 0].max():
-            curve = interp(sed_wave)
-            fluxes[i] = simps(curve * sed_flux, sed_wave)
+        if tmp_sed[0, 0] < max_waves[i]:
+            curve = interp_funcs[i](tmp_sed[:, 0])
+            if integrate == 'cumtrapz_c':
+                fluxes[i] = flux_cumtrapz(tmp_sed, curve, curve.size)
+            if integrate == 'cumtrapz':
+                fluxes[i] = cumtrapz(curve * tmp_sed[:, 1], tmp_sed[:, 0])[-1]
+            if integrate == 'simps':
+                fluxes[i] = simps(curve * tmp_sed[:, 1], tmp_sed[:, 0])
         else:
             fluxes[i] = 0.0
 
-        if i == 0:
-            for j in range(len(filters.keys())):
-                norm = simps(filters[j][:, 1], filters[j][:, 0])
-                assert np.allclose(norm, 1.0), \
-                    'Filter %d is not normalized' % j
-
     return fluxes
+
+def build_filter_interp(filters):
+    """
+    Make the interpolation functions for filters.
+    """
+    interp_funcs = {}
+    for i in range(len(filters.keys())):
+        norm = simps(filters[i][:, 1], filters[i][:, 0])
+        assert np.allclose(norm, 1.0), \
+            'Filter %d is not normalized' % j
+
+        interp_funcs[i] = interp1d(filters[i][:, 0], filters[i][:, 1],
+                                   bounds_error=False, fill_value=0.0,
+                                   kind='cubic')
+    return interp_funcs
         
-def shift_and_scale_model(fluxes, zs, eff_lambdas, Ngrid=None, flux_errs=None,
-                          zerrs=None, amps=None, wave_grid=None, scl=0.5,
-                          bandwidth=None):
+def shift_and_scale_model(fluxes, zs, eff_lambdas, max_wave, Ngrid=None,
+                          flux_errs=None, zerrs=None, amps=None,
+                          wave_grid=None, scl=0.5, bandwidth=None,
+                          est_window=10):
     """
     Return a model sed by shifting and scaling the data.
     
@@ -71,6 +88,8 @@ def shift_and_scale_model(fluxes, zs, eff_lambdas, Ngrid=None, flux_errs=None,
         bins = np.append(bins, wave_grid[-1] + dlt / 2.)
         wave_grid = np.exp(wave_grid)
         bins = np.exp(bins)
+    else:
+        dlt = np.log(wave_grid[1]) - np.log(wave_grid[0])
 
     if amps is None:
         # to do
@@ -95,6 +114,21 @@ def shift_and_scale_model(fluxes, zs, eff_lambdas, Ngrid=None, flux_errs=None,
     interp = interp1d(wave_grid[ind], sed[ind])
     ind = np.where(sed != sed)
     sed[ind] = interp(wave_grid[ind])
+
+    # extend sed to end of reddest filter by fitting a power-law
+    assert max_wave > wave_grid[-1]
+    ext = np.array([np.log(wave_grid[-1]) + dlt])
+    while np.exp(ext[-1]) < max_wave:
+        ext = np.append(ext, ext[-1] + dlt)
+    ext = np.exp(ext)
+    d = np.log(sed[-est_window:])
+    w = wave_grid[-est_window:]
+    a = np.vstack((w, np.ones_like(w)))
+    rh = np.dot(a, d)
+    lh = np.dot(a, a.T)
+    v = np.dot(np.linalg.inv(lh), rh)
+    sed = np.append(sed, np.exp(v[0] * ext + v[1]))
+    wave_grid = np.append(wave_grid, ext)
 
     # smooth if desired
     if bandwidth is not None:

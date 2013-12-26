@@ -12,6 +12,8 @@ def make_data(N, sedfile, filterfiles, noise_level=0.01, zmin=0.0, zmax=2.,
     """
     sed = np.loadtxt(sedfile)
     filters, eff = load_filters(filterfiles)
+    interp_funcs = build_filter_interp(filters)
+    max_waves = [filters[i][:, 0].max() for i in range(len(filters.keys()))]
 
     # from faintest bin in Ilbert et al. (2009)
     va = 0.126
@@ -33,7 +35,8 @@ def make_data(N, sedfile, filterfiles, noise_level=0.01, zmin=0.0, zmax=2.,
 
     fluxes = np.zeros((N, len(filterfiles)))
     for i in range(N):
-        fluxes[i] = compute_fluxes(filters, sed, redshifts[i])
+        fluxes[i] = compute_fluxes(interp_funcs, sed, redshifts[i],
+                                   max_waves)
 
     # add option for non-trivial amplitudes here.
     amplitudes = np.ones(N)
