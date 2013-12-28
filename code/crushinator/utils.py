@@ -1,5 +1,7 @@
 import numpy as np
 
+from .interpolation import Interp
+
 from scipy.integrate import simps, cumtrapz
 from scipy.interpolate import interp1d
 from scipy.ndimage.filters import gaussian_filter1d
