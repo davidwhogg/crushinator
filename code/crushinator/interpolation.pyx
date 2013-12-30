@@ -1,6 +1,6 @@
 import numpy as np
 cimport numpy as np
-from _interp cimport *
+from _interpolation cimport *
 cimport cython
 
 from libc.stdlib cimport malloc, free
@@ -9,9 +9,9 @@ DTYPE = np.float
 ctypedef np.float_t DTYPE_t
 
 @cython.boundscheck(False)
-def interp(np.ndarray[DTYPE_t, ndim=1] xref, np.ndarray[DTYPE_t, ndim=1] yref,
-           np.ndarray[DTYPE_t, ndim=1] xout, np.ndarray[DTYPE_t, ndim=1] yout,
-           int Nref, int Nout, int kind):
+def interpolation(np.ndarray[DTYPE_t, ndim=1] xref, np.ndarray[DTYPE_t, ndim=1] yref,
+                  np.ndarray[DTYPE_t, ndim=1] xout, np.ndarray[DTYPE_t, ndim=1] yout,
+                  int Nref, int Nout, int kind):
 
     cdef int i
     cdef double *x = <double *>malloc(Nref * sizeof(double))

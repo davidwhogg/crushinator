@@ -53,10 +53,10 @@ class Crushinator(object):
         """
         Calculate filter quantities, and interpolation funcs.
         """
-        filters, self.eff_waves = load_filters(filterfiles)
-        self.interp_funcs = build_filter_interp(filters)
-        self.max_waves = [filters[i][:, 0].max() 
-                          for i in range(len(filters.keys()))]
+        self.filters, self.eff_waves = load_filters(filterfiles)
+        self.interp_funcs = build_filter_interp(self.filters)
+        self.max_waves = [self.filters[i][:, 0].max() 
+                          for i in range(len(self.filters.keys()))]
 
     def fit_datum(self, model, fluxes, flux_errors):
         """
@@ -88,7 +88,8 @@ class Crushinator(object):
         self.models = np.zeros_like(self.fluxes)
         for i in range(self.N):
             self.models[i] = compute_fluxes(self.interp_funcs, sed,
-                                            self.redshifts[i], self.max_waves)
+                                            self.redshifts[i], self.max_waves,
+                                            self.filters)
 
         nll = 0.5 * (self.fluxes - self.amps[:, None] * self.models) ** 2. /\
             self.flux_errors ** 2.

@@ -1,6 +1,6 @@
 import numpy as np
 
-from .interpolation import Interp
+from .interpolation import interpolation
 
 from scipy.integrate import simps, cumtrapz
 from scipy.interpolate import interp1d
@@ -30,7 +30,7 @@ def effective_wavelength(filt):
     return np.sqrt(a / b)
 
 def compute_fluxes(interp_funcs, sed, redshift, max_waves,
-                   integrate='cumtrapz_c'):
+                   filters, integrate='cumtrapz_c'):
     """
     Compute fluxes in bandpasses, given redshift and sed
     """
@@ -43,7 +43,10 @@ def compute_fluxes(interp_funcs, sed, redshift, max_waves,
     fluxes = np.zeros(len(interp_funcs.keys()))
     for i in range(fluxes.size):
         if tmp_sed[0, 0] < max_waves[i]:
-            curve = interp_funcs[i](tmp_sed[:, 0])
+            curve = np.zeros_like(sed[:, 0])
+            #curve = interp_funcs[i](tmp_sed[:, 0])
+            interpolation(filters[i][:, 0], filters[i][:, 1], tmp_sed[:, 0],
+                          curve, filters[i].shape[0], curve.shape[0], 0)
             if integrate == 'cumtrapz_c':
                 fluxes[i] = flux_cumtrapz(tmp_sed, curve, curve.size)
             if integrate == 'cumtrapz':

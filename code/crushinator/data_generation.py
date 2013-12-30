@@ -36,7 +36,7 @@ def make_data(N, sedfile, filterfiles, noise_level=0.01, zmin=0.0, zmax=2.,
     fluxes = np.zeros((N, len(filterfiles)))
     for i in range(N):
         fluxes[i] = compute_fluxes(interp_funcs, sed, redshifts[i],
-                                   max_waves)
+                                   max_waves, filters)
 
     # add option for non-trivial amplitudes here.
     amplitudes = np.ones(N)
