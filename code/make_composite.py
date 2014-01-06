@@ -79,7 +79,7 @@ if __name__ == '__main__':
     synth_fluxes *= fit_results[:, 0][:, None]
 
     # load clusters
-    clusters = np.loadtxt(base + 'clusters.txt')
+    clusters = np.loadtxt(base + 'refined_clusters_0.003.txt')
     u = np.unique(clusters)
     for i in range(u.size):
         if u[i] == -1.:
@@ -110,4 +110,4 @@ if __name__ == '__main__':
         pl.ylim(0, np.mean(scaled_fluxes[ind]) *  factor)
         pl.ylabel('Scaled $F_\lambda\, (erg\,cm^{-2}\,s^{-1}\,\AA^{-1})$')
         pl.xlabel('$\log_{10}(\lambda / \AA)$')
-        f.savefig('../plots/shifted_and_scaled_%d.png' % i)
+        f.savefig('../plots/kriek/shifted_and_scaled_refined_%d.png' % i)

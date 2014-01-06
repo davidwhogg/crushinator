@@ -10,8 +10,8 @@ class Crushinator(object):
     from photometry.
     """
     def __init__(self, fluxes, flux_errors, filterfiles, initial_sed, 
-                 redshifts=None, known_amps=None, zmax=4., eps=1e6):
-        assert known_amps is not None, 'amp inference not supported yet'
+                 redshifts=None, known_amps=None, ini_amps=None, zmax=4.,
+                 eps=1e6):
         assert redshifts is not None, 'z inference not supported yet'
 
         self.count = 0
@@ -21,8 +21,10 @@ class Crushinator(object):
 
         self.eps = eps
         self.sed = initial_sed
+        self.amps = np.ones(self.N)
         self.fluxes = fluxes
         self.models = np.zeros((self.N, self.Nfilters))
+        self.fix_amps = False
         self.wave_grid = self.sed[:, 0]
         self.flux_errors = flux_errors
         self.initial_sed = initial_sed
@@ -34,6 +36,9 @@ class Crushinator(object):
         else:
             self.redshifts = redshifts
             self.fix_redshifts = True
+
+        if ini_amps is not None:
+            self.amps = ini_amps
 
         if known_amps is not None:
             self.amps = known_amps
@@ -84,12 +89,17 @@ class Crushinator(object):
         """
         Return the value of the loss for the current model.
         """
+        p /= p.sum()
         sed = np.vstack((self.wave_grid, p)).T
         self.models = np.zeros_like(self.fluxes)
         for i in range(self.N):
             self.models[i] = compute_fluxes(self.interp_funcs, sed,
                                             self.redshifts[i], self.max_waves,
                                             self.filters)
+            if not self.fix_amps:
+                self.amps[i], c = self.fit_datum(self.models[i],
+                                                 self.fluxes[i],
+                                                 self.flux_errors[i])
 
         nll = 0.5 * (self.fluxes - self.amps[:, None] * self.models) ** 2. /\
             self.flux_errors ** 2.

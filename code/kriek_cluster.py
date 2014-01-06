@@ -52,7 +52,7 @@ def get_distance_metrics(fluxes):
 
     return b_values
 
-def get_clusters(b_values, tol):
+def get_clusters(b_values, tol, min_num=20):
     """
     Assign clusters according to Kriek et al. (2011)
     """
@@ -66,7 +66,7 @@ def get_clusters(b_values, tol):
                            (clusters == -1.))[0]
             N_analogs[i] = ind.size
 
-        if np.all(N_analogs < 19):
+        if np.all(N_analogs < min_num):
             break
 
         new_parent = np.where(N_analogs == np.max(N_analogs))[0][0]
@@ -78,42 +78,82 @@ def get_clusters(b_values, tol):
 
     return clusters
 
+def refine_clusters(b_values, clusters):
+    """
+    Given rough cluster assignments, check whether better
+    assignments exist.
+    """
+    Nchanged = 0
+    parents = np.unique(clusters.astype(np.int))[1:]
+    for i in range(b_values.shape[0]):
+        c = clusters[i].astype(np.int)
+        if c == -1:
+            continue
+
+        vals = b_values[i, parents]
+        current = b_values[i, c]
+
+        ind = np.where((vals < current) & (vals > 0.0))[0]
+
+        if ind.size > 0:
+            mn = vals[ind].min()
+            Nchanged += 1
+            ind = vals == mn
+            clusters[i] = parents[ind]
+
+    print 'Reassigned %d galaxies' % Nchanged
+    return clusters
+        
+
+
 if __name__ == '__main__':
 
-    # load filters
-    filter_loglams, filter_profile = load_filters()
+    base = '../data/newfirm/cosmos_seds/kriek/'
+    
+    if False:
+        # load filters
+        filter_loglams, filter_profile = load_filters()
 
-    # get sed paths
-    os.system('ls ../data/newfirm/cosmos_seds/kriek/sed* > foo.txt')
-    f = open('foo.txt')
-    sed_files = f.readlines()
-    f.close()
-    os.system('rm foo.txt')
+        # get sed paths
+        os.system('ls ' + base + 'sed* > foo.txt')
+        f = open('foo.txt')
+        sed_files = f.readlines()
+        f.close()
+        os.system('rm foo.txt')
 
-    N = len(sed_files)
-    fluxes = np.zeros((N, filter_loglams.shape[0]))
-    for i in range(N):
-        print i
-        sed = np.loadtxt(sed_files[i][:-1])
-        fluxes[i] = make_measurements(np.log10(sed[:, 0]), sed[:, 1],
-                                      filter_loglams, filter_profile)
+        N = len(sed_files)
+        fluxes = np.zeros((N, filter_loglams.shape[0]))
+        for i in range(N):
+            sed = np.loadtxt(sed_files[i][:-1])
+            fluxes[i] = make_measurements(np.log10(sed[:, 0]), sed[:, 1],
+                                          filter_loglams, filter_profile)
 
-    if True:
-        np.savetxt('../data/newfirm/cosmos_seds/kriek/synth_fluxes.dat', fluxes)
-        assert 0
-
+            np.savetxt(base + 'synth_fluxes.dat', fluxes)
+    else:
+        fluxes = np.loadtxt(base + 'synth_fluxes.dat')
     print 'b_values'
     b_values = get_distance_metrics(fluxes)
+
     print 'clusters'
+    # assign initial clusters
+    # 0.003 give 32 unique
     while True:
-        tol = np.float(raw_input('-->'))
+        tol = np.float(raw_input('tolerace --> '))
         clusters = get_clusters(b_values, tol)
         print np.unique(clusters), len(np.unique(clusters))
-        cmd = raw_input('-->')
+        cmd = raw_input('action --> ')
         if cmd == 'stop':
             break
 
-    f = open('../data/newfirm/cosmos_seds/kriek/clusters.txt', 'w')
+    f = open(base + 'clusters_%0.3f.txt' % tol, 'w')
+    for i in range(clusters.size):
+        f.write('%d\n' % clusters[i])
+    f.close()
+
+    # refine assignments
+    clusters = refine_clusters(b_values, clusters)
+
+    f = open(base + 'refined_clusters_%0.3f.txt' % tol, 'w')
     for i in range(clusters.size):
         f.write('%d\n' % clusters[i])
     f.close()

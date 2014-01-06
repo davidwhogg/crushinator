@@ -40,7 +40,7 @@ def compute_fluxes(interp_funcs, sed, redshift, max_waves,
     tmp_sed = sed.copy()
     tmp_sed[:, 0] = (1. + redshift) * tmp_sed[:, 0]
 
-    fluxes = np.zeros(len(interp_funcs.keys()))
+    fluxes = np.zeros(len(filters.keys()))
     for i in range(fluxes.size):
         if tmp_sed[0, 0] < max_waves[i]:
             curve = np.zeros_like(sed[:, 0])
