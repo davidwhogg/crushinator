@@ -76,7 +76,7 @@ class Crushinator(object):
         return scale, chi2
 
     def optimize(self, max_iter=1000, outlier_init_logprior=-6,
-                 outlier_init_logscale=1):
+                 outlier_init_logscale=0):
         """
         Infer the MAP sed.
         """
@@ -131,9 +131,8 @@ class Crushinator(object):
 
             nll = np.log(good_prior * gl + bad_prior * bl)
         else:
-            nll = 0.5 * sqe / self.flux_vars
+            nll = np.sum(0.5 * sqe / self.flux_vars)
 
-        nll = nll.sum()
         reg = self.eps * np.sum((p[1:] - p[:-1]) ** 2.)
         if self.count % 1000 == 0:
             print nll, reg, nll + reg
