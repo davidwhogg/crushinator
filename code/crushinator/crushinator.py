@@ -11,7 +11,7 @@ class Crushinator(object):
     """
     def __init__(self, fluxes, flux_errors, filterfiles, initial_sed, 
                  redshifts=None, known_amps=None, ini_amps=None, zmax=4.,
-                 eps=1e6):
+                 outlier=False, eps=1e6):
         assert redshifts is not None, 'z inference not supported yet'
 
         self.count = 0
@@ -24,9 +24,9 @@ class Crushinator(object):
         self.amps = np.ones(self.N)
         self.fluxes = fluxes
         self.models = np.zeros((self.N, self.Nfilters))
-        self.fix_amps = False
+        self.outlier = outlier
         self.wave_grid = self.sed[:, 0]
-        self.flux_errors = flux_errors
+        self.flux_vars = flux_errors ** 2.
         self.initial_sed = initial_sed
 
         self.filter_calcs(filterfiles)
@@ -43,6 +43,8 @@ class Crushinator(object):
         if known_amps is not None:
             self.amps = known_amps
             self.fix_amps = True
+        else:
+            self.fix_amps = False
 
         # add more checks...
         self.run_checks()
@@ -52,7 +54,7 @@ class Crushinator(object):
         Check input.
         """
         m = 'Flux shape does not match'
-        assert self.fluxes.shape == self.flux_errors.shape, m
+        assert self.fluxes.shape == self.flux_vars.shape, m
 
     def filter_calcs(self, filterfiles):
         """
@@ -63,17 +65,18 @@ class Crushinator(object):
         self.max_waves = [self.filters[i][:, 0].max() 
                           for i in range(len(self.filters.keys()))]
 
-    def fit_datum(self, model, fluxes, flux_errors):
+    def fit_datum(self, model, fluxes, flux_vars):
         """
         Fit one objects set of fluxes.
         """
-        lh = np.sum(model ** 2. / flux_errors ** 2.)
-        rh = np.sum(model * fluxes / flux_errors ** 2.)
+        lh = np.sum(model ** 2. / flux_vars)
+        rh = np.sum(model * fluxes / flux_vars)
         scale = rh / lh
-        chi2 = np.sum((fluxes - scale * model) ** 2. / flux_errors ** 2.)
+        chi2 = np.sum((fluxes - scale * model) ** 2. / flux_vars)
         return scale, chi2
 
-    def optimize(self, max_iter=1000):
+    def optimize(self, max_iter=1000, outlier_init_logprior=-6,
+                 outlier_init_logscale=1):
         """
         Infer the MAP sed.
         """
@@ -82,6 +85,10 @@ class Crushinator(object):
             p0 = self.initial_sed[:, 1].copy()
             args = ()
 
+        # outlier initialization
+        if self.outlier:
+            p0 = np.append(p0, [outlier_init_logprior, outlier_init_logscale])
+
         result = fmin_bfgs(self.loss, p0, args=args, maxiter=max_iter)
         self.sed = result
 
@@ -89,6 +96,13 @@ class Crushinator(object):
         """
         Return the value of the loss for the current model.
         """
+        if self.outlier:
+            f = np.exp(p[-2])
+            bad_var = self.flux_vars * (1. + np.exp(p[-1]))
+            good_prior = f / (1. - f)
+            bad_prior = 1. - good_prior
+            p = p[:-2]
+
         p /= p.sum()
         sed = np.vstack((self.wave_grid, p)).T
         self.models = np.zeros_like(self.fluxes)
@@ -99,10 +113,26 @@ class Crushinator(object):
             if not self.fix_amps:
                 self.amps[i], c = self.fit_datum(self.models[i],
                                                  self.fluxes[i],
-                                                 self.flux_errors[i])
+                                                 self.flux_vars[i])
 
-        nll = 0.5 * (self.fluxes - self.amps[:, None] * self.models) ** 2. /\
-            self.flux_errors ** 2.
+        sqe = (self.fluxes - self.amps[:, None] * self.models) ** 2.
+
+        if self.outlier:
+            # ghetto log-sum-exp
+            ag = 1. / np.sqrt(2. * np.pi * self.flux_vars)
+            ab = 1. / np.sqrt(2. * np.pi * bad_vars)
+            gl = ag * np.exp(0.5 * sqe / self.flux_vars)
+            bl = ab * np.exp(0.5 * sqe / bad_vars)
+            gl = np.sum(gl)
+            bl = np.sum(bl)
+
+            if gl > 1.e-200:
+                print 'WARNING Sum of good likelihood too low'
+
+            nll = np.log(good_prior * gl + bad_prior * bl)
+        else:
+            nll = 0.5 * sqe / self.flux_vars
+
         nll = nll.sum()
         reg = self.eps * np.sum((p[1:] - p[:-1]) ** 2.)
         if self.count % 1000 == 0:
