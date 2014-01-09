@@ -1,8 +1,9 @@
 import numpy as np
 
 from .interpolation import interpolation
+from flux_calculation import flux_cumtrapz 
 
-from scipy.integrate import simps, cumtrapz
+from scipy.integrate import simps
 from scipy.interpolate import interp1d
 from scipy.ndimage.filters import gaussian_filter1d
 
@@ -29,30 +30,27 @@ def effective_wavelength(filt):
     b = np.sum(filt[:, 1] / filt[:, 0])
     return np.sqrt(a / b)
 
-def compute_fluxes(interp_funcs, sed, redshift, max_waves,
-                   filters, integrate='cumtrapz_c'):
+def compute_one_flux(filt, sed):
+    """
+    Compute the flux in a single filter, given the redshifted sed.
+    """
+    curve = np.zeros_like(sed[:, 0])
+    interpolation(filt[:, 0], filt[:, 1], sed[:, 0],
+                  curve, filt.shape[0], curve.shape[0], 0)
+
+    return flux_cumtrapz(sed, curve, curve.size)
+
+def compute_fluxes(sed, redshift, max_waves, filters):
     """
     Compute fluxes in bandpasses, given redshift and sed
     """
-    if integrate == 'cumtrapz_c':
-        from flux_calculation import flux_cumtrapz 
-
     tmp_sed = sed.copy()
     tmp_sed[:, 0] = (1. + redshift) * tmp_sed[:, 0]
 
     fluxes = np.zeros(len(filters.keys()))
     for i in range(fluxes.size):
         if tmp_sed[0, 0] < max_waves[i]:
-            curve = np.zeros_like(sed[:, 0])
-            #curve = interp_funcs[i](tmp_sed[:, 0])
-            interpolation(filters[i][:, 0], filters[i][:, 1], tmp_sed[:, 0],
-                          curve, filters[i].shape[0], curve.shape[0], 0)
-            if integrate == 'cumtrapz_c':
-                fluxes[i] = flux_cumtrapz(tmp_sed, curve, curve.size)
-            if integrate == 'cumtrapz':
-                fluxes[i] = cumtrapz(curve * tmp_sed[:, 1], tmp_sed[:, 0])[-1]
-            if integrate == 'simps':
-                fluxes[i] = simps(curve * tmp_sed[:, 1], tmp_sed[:, 0])
+            fluxes[i] = compute_one_flux(filters[i], tmp_sed)
         else:
             fluxes[i] = 0.0
 

@@ -1,6 +1,8 @@
 import numpy as np
+import multiprocessing
 
 from scipy.optimize import fmin_bfgs
+
 from .utils import compute_fluxes, effective_wavelength
 from .utils import load_filters, build_filter_interp
 
@@ -25,6 +27,7 @@ class Crushinator(object):
         self.fluxes = fluxes
         self.models = np.zeros((self.N, self.Nfilters))
         self.outlier = outlier
+        self.threads = threads
         self.wave_grid = self.sed[:, 0]
         self.flux_vars = flux_errors ** 2.
         self.initial_sed = initial_sed
@@ -98,19 +101,23 @@ class Crushinator(object):
         """
         if self.outlier:
             f = np.exp(p[-2])
-            bad_var = self.flux_vars * (1. + np.exp(p[-1]))
-            good_prior = f / (1. - f)
-            bad_prior = 1. - good_prior
+            bad_vars = self.flux_vars * (1. + np.exp(p[-1]))
+            bad_prior = 1. / (1.+ f)
+            good_prior = 1. - bad_prior
             p = p[:-2]
 
         p /= p.sum()
         sed = np.vstack((self.wave_grid, p)).T
+
+        # models
         self.models = np.zeros_like(self.fluxes)
         for i in range(self.N):
-            self.models[i] = compute_fluxes(self.interp_funcs, sed,
-                                            self.redshifts[i], self.max_waves,
-                                            self.filters)
-            if not self.fix_amps:
+            self.models[i] = compute_fluxes(sed, self.redshifts[i],
+                                            self.max_waves, self.filters)
+
+        # Amplitudes
+        if not self.fix_amps:
+            for i in range(self.N):
                 self.amps[i], c = self.fit_datum(self.models[i],
                                                  self.fluxes[i],
                                                  self.flux_vars[i])
@@ -121,20 +128,17 @@ class Crushinator(object):
             # ghetto log-sum-exp
             ag = 1. / np.sqrt(2. * np.pi * self.flux_vars)
             ab = 1. / np.sqrt(2. * np.pi * bad_vars)
-            gl = ag * np.exp(0.5 * sqe / self.flux_vars)
-            bl = ab * np.exp(0.5 * sqe / bad_vars)
+            gl = ag * np.exp(-0.5 * sqe / self.flux_vars)
+            bl = ab * np.exp(-0.5 * sqe / bad_vars)
             gl = np.sum(gl)
             bl = np.sum(bl)
 
-            if gl > 1.e-200:
-                print 'WARNING Sum of good likelihood too low'
-
-            nll = np.log(good_prior * gl + bad_prior * bl)
+            nll = -np.log(good_prior * gl + bad_prior * bl)
         else:
             nll = np.sum(0.5 * sqe / self.flux_vars)
 
         reg = self.eps * np.sum((p[1:] - p[:-1]) ** 2.)
-        if self.count % 1000 == 0:
+        if self.count % 20 == 0:
             print nll, reg, nll + reg
 
         self.count += 1

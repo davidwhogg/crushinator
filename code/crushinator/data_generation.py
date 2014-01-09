@@ -5,7 +5,7 @@ from scipy.integrate import simps
 from scipy.interpolate import interp1d
 
 def make_data(N, sedfile, filterfiles, noise_level=0.01, zmin=0.0, zmax=2.,
-              Nzgrid=1000):
+              Nzgrid=1000, outlier_frac=0.05, outlier_scale=10.):
     """
     Generate fake data given the sed and filters.  `filterfiles` should
     be a list of strings.
@@ -35,16 +35,22 @@ def make_data(N, sedfile, filterfiles, noise_level=0.01, zmin=0.0, zmax=2.,
 
     fluxes = np.zeros((N, len(filterfiles)))
     for i in range(N):
-        fluxes[i] = compute_fluxes(interp_funcs, sed, redshifts[i],
-                                   max_waves, filters)
+        fluxes[i] = compute_fluxes(sed, redshifts[i], max_waves, filters)
 
     # add option for non-trivial amplitudes here.
     amplitudes = np.ones(N)
     fluxes *= amplitudes[:, None]
 
+    Noutlier = np.int(fluxes.shape[0]) * outlier_frac
+
     # noise
-    noise_level = np.median(fluxes) * noise_level
-    noise = np.random.randn(fluxes.shape[0], fluxes.shape[1]) * noise_level
+    noise_level = np.ones_like(fluxes) * np.median(fluxes) * noise_level
+    if Noutlier > 0:
+        nl = noise_level.copy()
+        nl[:Noutlier] = noise_level[:Noutlier] * outlier_scale
+    else:
+        nl = noise_level
+    noise = np.random.randn(fluxes.shape[0], fluxes.shape[1]) * nl
     fluxes += noise
 
     return redshifts, fluxes, amplitudes, noise_level, eff, filters
