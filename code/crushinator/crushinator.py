@@ -27,7 +27,6 @@ class Crushinator(object):
         self.fluxes = fluxes
         self.models = np.zeros((self.N, self.Nfilters))
         self.outlier = outlier
-        self.threads = threads
         self.wave_grid = self.sed[:, 0]
         self.flux_vars = flux_errors ** 2.
         self.initial_sed = initial_sed
